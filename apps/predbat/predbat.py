@@ -3623,38 +3623,38 @@ class Inverter:
                 str_type += "and "
             str_type += "timed "
 
-        if self.inverter_type == "GS":
-            # Solis just has a single switch for both directions
-            # Need to check the logic of how this is called if both charging and discharging
+        # if self.inverter_type == "GS":
+        #     # Solis just has a single switch for both directions
+        #     # Need to check the logic of how this is called if both charging and discharging
 
-            modes_new = self.base.get_arg("solax_modbus_new", True)
-            solax_modes = SOLAX_SOLIS_MODES_NEW if modes_new else SOLAX_SOLIS_MODES
+        #     modes_new = self.base.get_arg("solax_modbus_new", True)
+        #     solax_modes = SOLAX_SOLIS_MODES_NEW if modes_new else SOLAX_SOLIS_MODES
 
-            entity_id = self.base.get_arg("energy_control_switch", indirect=False, index=self.id)
-            entity = self.base.get_entity(entity_id)
-            switch = solax_modes.get(entity.get_state(), 0)
-            # Grid charging is Bit 1(2) and Timed Charging is Bit 5(32)
-            mask = 2 * timed + 32 * grid
-            if switch > 0:
-                # Timed charging is Bit 1 so we OR with 2 to set and AND with ~2 to clear
-                if enable:
-                    new_switch = switch | mask
-                else:
-                    new_switch = switch & ~mask
+        #     entity_id = self.base.get_arg("energy_control_switch", indirect=False, index=self.id)
+        #     entity = self.base.get_entity(entity_id)
+        #     switch = solax_modes.get(entity.get_state(), 0)
+        #     # Grid charging is Bit 1(2) and Timed Charging is Bit 5(32)
+        #     mask = 2 * timed + 32 * grid
+        #     if switch > 0:
+        #         # Timed charging is Bit 1 so we OR with 2 to set and AND with ~2 to clear
+        #         if enable:
+        #             new_switch = switch | mask
+        #         else:
+        #             new_switch = switch & ~mask
 
-                if new_switch != switch:
-                    # Now lookup the new mode in an inverted dict:
-                    new_mode = {solax_modes[x]: x for x in solax_modes}[new_switch]
+        #         if new_switch != switch:
+        #             # Now lookup the new mode in an inverted dict:
+        #             new_mode = {solax_modes[x]: x for x in solax_modes}[new_switch]
 
-                    self.base.log(f"Setting Solis Energy Control Switch to {new_switch} {new_mode} from {switch} to {str_enable} {str_type} charging")
-                    self.write_and_poll_option(name=entity_id, entity=entity, new_value=new_mode)
-                    return True
-                else:
-                    self.base.log(f"Solis Energy Control Switch setting {switch} is correct for {str_enable} {str_type} charging")
-                    return True
-            else:
-                self.base.log(f"WARN: Unable to read current value of Solis Mode switch {entity_id}. Unable to {str_enable} {str_type} charging")
-                return False
+        #             self.base.log(f"Setting Solis Energy Control Switch to {new_switch} {new_mode} from {switch} to {str_enable} {str_type} charging")
+        #             self.write_and_poll_option(name=entity_id, entity=entity, new_value=new_mode)
+        #             return True
+        #         else:
+        #             self.base.log(f"Solis Energy Control Switch setting {switch} is correct for {str_enable} {str_type} charging")
+        #             return True
+        #     else:
+        #         self.base.log(f"WARN: Unable to read current value of Solis Mode switch {entity_id}. Unable to {str_enable} {str_type} charging")
+        #         return False
 
         # MQTT
         if direction == "charge" and enable:
