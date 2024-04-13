@@ -3633,14 +3633,11 @@ class Inverter:
             entity_id = self.base.get_arg("energy_control_switch", indirect=False, index=self.id)
             entity = self.base.get_entity(entity_id)
             switch = solax_modes.get(entity.get_state(), 0)
-            # Grid charging is Bit 1(2) and Timed Charging is Bit 5(32)
-            mask = 2 * timed + 32 * grid
             if switch > 0:
-                # Timed charging is Bit 1 so we OR with 2 to set and AND with ~2 to clear
                 if enable:
-                    new_switch = switch | mask
+                    new_switch = 35
                 else:
-                    new_switch = switch & ~mask
+                    new_switch = 3
 
                 if new_switch != switch:
                     # Now lookup the new mode in an inverted dict:
