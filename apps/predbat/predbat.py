@@ -3921,7 +3921,7 @@ class Inverter:
             time.sleep(self.inv_write_and_poll_sleep)
             time_pressed = datetime.strptime(entity.get_state(), TIME_FORMAT_SECONDS)
 
-            if (pytz.timezone("UTC").localize(datetime.now()) - time_pressed).seconds < 10:
+            if (datetime.now(pytz.utc) - time_pressed).seconds < 10:
                 self.base.log(f"Successfully pressed button {entity_id} on Inverter {self.id}")
                 return True
         self.base.log(f"WARN: Inverter {self.id} Trying to press {entity_id} didn't complete")
