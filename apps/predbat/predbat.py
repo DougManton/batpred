@@ -26,7 +26,7 @@ from multiprocessing import Pool, cpu_count
 if not "PRED_GLOBAL" in globals():
     PRED_GLOBAL = {}
 
-THIS_VERSION = "v7.16.13"
+THIS_VERSION = "v7.16.14"
 PREDBAT_FILES = ["predbat.py"]
 TIME_FORMAT = "%Y-%m-%dT%H:%M:%S%z"
 TIME_FORMAT_SECONDS = "%Y-%m-%dT%H:%M:%S.%f%z"
@@ -8115,6 +8115,7 @@ class PredBat(hass.Hass):
             discharge_end_date = None
             discharge_average = None
             discharge_start_in_minutes = self.forecast_minutes
+            discharge_end_in_minutes = self.forecast_minutes
 
             if discharge_window and (discharge_window[0]["end"] < (24 * 60 + self.minutes_now)):
                 discharge_start_minutes = discharge_window[0]["start"]
@@ -9330,7 +9331,7 @@ class PredBat(hass.Hass):
                 else:
                     average = self.dp2(window["average"] / self.inverter_loss / self.battery_loss + self.metric_battery_cycle)
                 if secondary_order:
-                    average_export = (self.rate_export.get(window["start"], 0) + self.rate_export.get(window["end"], 0) - 5) / 2
+                    average_export = self.dp2((self.rate_export.get(window["start"], 0) + self.rate_export.get(window["end"] - PREDICT_STEP, 0)) / 2)
                 else:
                     average_export = 0
                 sort_key = "%04.2f_%04.2f_%03d_c%02d" % (5000 - average, 5000 - average_export, 999 - id, id)
@@ -9339,6 +9340,7 @@ class PredBat(hass.Hass):
                 window_links[sort_key]["type"] = "c"
                 window_links[sort_key]["id"] = id
                 window_links[sort_key]["average"] = self.dp1(average)  # Round to nearest 0.1 penny to avoid too many bands
+                window_links[sort_key]["average_secondary"] = self.dp1(average_export)  # Round to nearest 0.1 penny to avoid too many bands
                 id += 1
 
         # Add discharge windows
@@ -9348,7 +9350,7 @@ class PredBat(hass.Hass):
                 # Account for losses in average rate as it makes export value lower
                 average = self.dp2(window["average"] * self.inverter_loss * self.battery_loss_discharge - self.metric_battery_cycle)
                 if secondary_order:
-                    average_import = (self.rate_import.get(window["start"], 0) + self.rate_import.get(window["end"], 0) - 5) / 2
+                    average_import = self.dp2((self.rate_import.get(window["start"], 0) + self.rate_import.get(window["end"] - PREDICT_STEP, 0)) / 2)
                 else:
                     average_import = 0
                 sort_key = "%04.2f_%04.2f_%03d_d%02d" % (5000 - average, 5000 - average_import, 999 - id, id)
@@ -9360,6 +9362,7 @@ class PredBat(hass.Hass):
                 window_links[sort_key]["type"] = "d"
                 window_links[sort_key]["id"] = id
                 window_links[sort_key]["average"] = self.dp1(average)  # Round to nearest 0.1 penny to avoid too many bands
+                window_links[sort_key]["average_secondary"] = self.dp1(average_import)  # Round to nearest 0.1 penny to avoid too many bands
                 id += 1
 
         if window_sort:
@@ -9794,11 +9797,12 @@ class PredBat(hass.Hass):
 
         # Work out the lowest rate we charge at from the first pass
         lowest_price_charge = best_price
-        for price in price_set:
-            links = price_links[price]
+        for price_key in price_set:
+            links = price_links[price_key]
             for key in links:
                 typ = window_index[key]["type"]
                 window_n = window_index[key]["id"]
+                price = window_index[key]["average"]
                 if typ == "c" and (self.charge_limit_best[window_n] > self.reserve and price < lowest_price_charge):
                     lowest_price_charge = price
 
@@ -9817,8 +9821,8 @@ class PredBat(hass.Hass):
                 price_set.reverse()
                 start_at_low = True
 
-            for price in price_set:
-                links = price_links[price].copy()
+            for price_key in price_set:
+                links = price_links[price_key].copy()
 
                 # Freeze pass should be done in time order (newest first)
                 if pass_type in ["freeze"]:
@@ -9829,6 +9833,7 @@ class PredBat(hass.Hass):
                 for key in links:
                     typ = window_index[key]["type"]
                     window_n = window_index[key]["id"]
+                    price = window_index[key]["average"]
 
                     if typ == "c":
                         # Store price set with window
@@ -9848,8 +9853,8 @@ class PredBat(hass.Hass):
                         if self.calculate_best_charge and (window_start not in self.manual_all_times):
                             if not printed_set:
                                 self.log(
-                                    "Optimise price set {} start_at_low {} best_price {} best_metric {} best_cost {}".format(
-                                        price, start_at_low, best_price, self.dp2(best_metric), self.dp2(best_cost)
+                                    "Optimise price set {} price {} start_at_low {} best_price {} best_metric {} best_cost {}".format(
+                                        price_key, price, start_at_low, best_price, self.dp2(best_metric), self.dp2(best_cost)
                                     )
                                 )
                                 printed_set = True
@@ -9918,8 +9923,8 @@ class PredBat(hass.Hass):
 
                             if not printed_set:
                                 self.log(
-                                    "Optimise price set {} start_at_low {} best_price {} best_metric {} best_cost {}".format(
-                                        price, start_at_low, best_price, self.dp2(best_metric), self.dp2(best_cost)
+                                    "Optimise price set {} price {} start_at_low {} best_price {} best_metric {} best_cost {}".format(
+                                        price_key, price, start_at_low, best_price, self.dp2(best_metric), self.dp2(best_cost)
                                     )
                                 )
                                 printed_set = True
